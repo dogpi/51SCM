@@ -1,0 +1,217 @@
+C51 COMPILER V9.01   1                                                                     04/23/2016 10:12:41 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE 1
+OBJECT MODULE PLACED IN 1.OBJ
+COMPILER INVOKED BY: J:\mdk4\C51\BIN\C51.EXE 1.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h>
+   2          #include "XPT2046.h"
+   3          
+   4          typedef unsigned char uint8;
+   5          typedef unsigned int uint16;
+   6          sbit rs=P2^6;    // 数据命令选择
+   7          sbit rw=P2^5;    //读写选择
+   8          sbit e=P2^7;      //使能
+   9          
+  10          sbit k1=P3^3; //模式
+  11          sbit k2=P2^1; //加
+  12          sbit k3=P2^2; //减
+  13          
+  14          sbit moto=P3^6;
+  15          sbit beep=P3^7;
+  16          
+  17          
+  18          uint8 mode=0;
+  19          char temph=20;
+  20          uint8 temp,flag;
+  21          
+  22          uint8 code num[10]="0123456789";
+  23          
+  24          uint8 code str1[]="GAS:";  
+  25          uint8 code str2[]="SET:"; 
+  26          
+  27          
+  28          
+  29          void delay(uint16 i)
+  30          {
+  31   1              while(i--);
+  32   1      }
+  33          
+  34          void wrc(uint8 c)        //写命令
+  35          {
+  36   1              delay(1000);
+  37   1              rs=0;
+  38   1              rw=0;
+  39   1              e=0;
+  40   1              P0=c;
+  41   1              e=1;
+  42   1              delay(10);
+  43   1              e=0;
+  44   1      }
+  45          void wrd(uint8 dat)       //写数据
+  46          {
+  47   1              delay(1000);
+  48   1              rs=1;
+  49   1              rw=0;
+  50   1              e=0;
+  51   1              P0=dat;
+  52   1              e=1;
+  53   1              delay(10);
+  54   1              e=0;
+  55   1              rs=0;
+C51 COMPILER V9.01   1                                                                     04/23/2016 10:12:41 PAGE 2   
+
+  56   1      }
+  57          void lcd_init()    // LCD1602初始化
+  58          {
+  59   1              delay(1000);
+  60   1              wrc(0x38);
+  61   1              wrc(0x38);       //功能设置命令，选择8位总线，双行显示  5*7点阵字符
+  62   1              wrc(0x38);
+  63   1              wrc(0x06);      //光标和显示模式设置  光标右移  整屏不移动
+  64   1              wrc(0x0c);      //显示开关控制  开显示  无光标 光标不闪烁
+  65   1              wrc(0x01);      //清零指令  固定的
+  66   1      }
+  67          
+  68          void key_pros()  //按键处理函数
+  69          {
+  70   1              if(k1==0)
+  71   1              {
+  72   2                      delay(1000);
+  73   2                      if(k1==0)
+  74   2                      {
+  75   3                              mode++;
+  76   3                              flag=0;
+  77   3                              if(mode==2)
+  78   3                              {
+  79   4                                      mode=0;
+  80   4                                      flag=1; 
+  81   4                              }
+  82   3                              
+  83   3                      }
+  84   2                      while(!k1);
+  85   2              }
+  86   1              if(mode==1)               //对空气检测报警值设定
+  87   1              {
+  88   2                      if(k2==0)                 //加
+  89   2                      {
+  90   3                              delay(1000);
+  91   3                              if(k2==0)
+  92   3                              {
+  93   4                                      temph+=1;
+  94   4                                      if(temph>=100)temph=100;
+  95   4                              }
+  96   3                              while(!k2);
+  97   3                      }
+  98   2                      if(k3==0)          //减
+  99   2                      {
+ 100   3                              delay(1000);
+ 101   3                              if(k3==0)
+ 102   3                              {
+ 103   4                                      temph-=1;
+ 104   4                                      if(temph<=0)temph=0;    
+ 105   4                              }
+ 106   3                              while(!k3);
+ 107   3                      }
+ 108   2              }
+ 109   1              
+ 110   1      }
+ 111          
+ 112          void lcd_init_display()    //LCD初始化显示
+ 113          {
+ 114   1              uint8 i;
+ 115   1              for(i=0;i<4;i++)
+ 116   1              {
+ 117   2                      wrc(0x80+i);
+C51 COMPILER V9.01   1                                                                     04/23/2016 10:12:41 PAGE 3   
+
+ 118   2                      wrd(str1[i]);   
+ 119   2              }
+ 120   1      
+ 121   1              for(i=0;i<4;i++)
+ 122   1              {
+ 123   2                      wrc(0xc0+i);
+ 124   2                      wrd(str2[i]);   
+ 125   2              }
+ 126   1      }
+ 127          
+ 128          void data_pros()        //数据处理函数
+ 129          {
+ 130   1              uint8 tempbuf[3],temp_buf[3],i;
+ 131   1              tempbuf[0]=temp/100+0x30;
+ 132   1              tempbuf[1]=temp%100/10+0x30;                            
+ 133   1              tempbuf[2]=temp%100%10+0x30;
+ 134   1              
+ 135   1              temp_buf[0]=temph/100+0x30;
+ 136   1              temp_buf[1]=temph%100/10+0x30;                          
+ 137   1              temp_buf[2]=temph%100%10+0x30;
+ 138   1      
+ 139   1              for(i=0;i<3;i++)
+ 140   1              {
+ 141   2                      wrc(0x84+i);
+ 142   2                      wrd(tempbuf[i]);
+ 143   2              }
+ 144   1      
+ 145   1              for(i=0;i<3;i++)
+ 146   1              {
+ 147   2                      wrc(0xc4+i);
+ 148   2                      wrd(temp_buf[i]);
+ 149   2              }
+ 150   1      }
+ 151          
+ 152          void sound()
+ 153          {
+ 154   1              uint8 i=100;
+ 155   1              while(i--)
+ 156   1              {
+ 157   2                      beep=~beep;
+ 158   2                      delay(100);     
+ 159   2              }
+ 160   1      }
+ 161          void baojinpros()       //报警处理
+ 162          {
+ 163   1              if(temp>=temph&&flag==1)
+ 164   1              {
+ 165   2                      moto=0;
+ 166   2                      sound();
+ 167   2              }
+ 168   1              else
+ 169   1              {       
+ 170   2                      moto=1;
+ 171   2                      beep=1;
+ 172   2              }
+ 173   1      }
+ 174          
+ 175          void main()
+ 176          {
+ 177   1              moto=1;
+ 178   1              beep=1;
+ 179   1              lcd_init();
+C51 COMPILER V9.01   1                                                                     04/23/2016 10:12:41 PAGE 4   
+
+ 180   1              lcd_init_display();        //LCD初始化显示
+ 181   1              while(1)
+ 182   1              {       
+ 183   2                      key_pros();
+ 184   2                      data_pros();
+ 185   2                      baojinpros();
+ 186   2                      temp = Read_AD_Data(0x94)/40;                   
+ 187   2              }       
+ 188   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    450    ----
+   CONSTANT SIZE    =     20    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

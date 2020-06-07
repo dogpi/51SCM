@@ -1,0 +1,548 @@
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE 1
+OBJECT MODULE PLACED IN 1.OBJ
+COMPILER INVOKED BY: J:\mdk4\C51\BIN\C51.EXE 1.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h>
+   2          #include "intrins.h"
+   3          typedef unsigned char uint8;
+   4          typedef unsigned int uint16;
+   5          sbit rs=P2^6;    // 数据命令选择
+   6          sbit rw=P2^5;    //读写选择
+   7          sbit e=P2^7;      //使能
+   8          
+   9          sbit k1=P3^3; //模式
+  10          sbit k2=P2^1; //加
+  11          sbit k3=P2^2; //减
+  12          
+  13          sbit DHT11_DQ_OUT=P3^2;
+  14          sbit led1=P3^6;
+  15          sbit led2=P3^7;
+  16          
+  17          sbit dq=P2^0;
+  18          
+  19          uint8 mode=0,xian;
+  20          char temph=50,templ=20;
+  21          char humih=80,humil=20;
+  22          uint8 temp,humi;
+  23          uint8 flag;       //设定报警标志
+  24          uint8 a,c,tempvalue;
+  25          uint8 code num[10]="0123456789";
+  26          
+  27          uint8 code str1[]="Temp:";  //温度
+  28          uint8 code str2[]="Humi:";  //湿度
+  29          uint8 code str3[]="Error";  
+  30          uint8 code str4[]="Success    "; 
+  31          uint8 code str5[]="%RH";
+  32          uint8 code str6[]="TempH:";       //设定温度上限显示
+  33          uint8 code str7[]="TempL:";       //设定温度下限显示
+  34          uint8 code str8[]="HumiH:";        //设定湿度上限显示
+  35          uint8 code str9[]="HumiL:";        //设定湿度下限显示
+  36          
+  37          
+  38          void delay(uint16 i)
+  39          {
+  40   1              while(i--);
+  41   1      }
+  42          
+  43          void delay_ms(uint16 i)
+  44          {
+  45   1              while(i--)
+  46   1                      delay(90);
+  47   1      }
+  48          
+  49          void wrc(uint8 c)        //写命令
+  50          {
+  51   1              delay(1000);
+  52   1              rs=0;
+  53   1              rw=0;
+  54   1              e=0;
+  55   1              P0=c;
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 2   
+
+  56   1              e=1;
+  57   1              delay(10);
+  58   1              e=0;
+  59   1      }
+  60          void wrd(uint8 dat)       //写数据
+  61          {
+  62   1              delay(1000);
+  63   1              rs=1;
+  64   1              rw=0;
+  65   1              e=0;
+  66   1              P0=dat;
+  67   1              e=1;
+  68   1              delay(10);
+  69   1              e=0;
+  70   1              rs=0;
+  71   1      }
+  72          void lcd_init()    // LCD1602初始化
+  73          {
+  74   1              delay(1000);
+  75   1              wrc(0x38);
+  76   1              wrc(0x38);       //功能设置命令，选择8位总线，双行显示  5*7点阵字符
+  77   1              wrc(0x38);
+  78   1              wrc(0x06);      //光标和显示模式设置  光标右移  整屏不移动
+  79   1              wrc(0x0c);      //显示开关控制  开显示  无光标 光标不闪烁
+  80   1              wrc(0x01);      //清零指令  固定的
+  81   1      }
+  82          //复位DHT11
+  83          void DHT11_Rst()           
+  84          {                 
+  85   1          DHT11_DQ_OUT=0;     //拉低DQ
+  86   1          delay_ms(20);       //拉低至少18ms
+  87   1          DHT11_DQ_OUT=1;     //DQ=1 
+  88   1              delay(3);       //主机拉高20~40us
+  89   1      }
+  90          
+  91          //等待DHT11的回应
+  92          //返回1:未检测到DHT11的存在
+  93          //返回0:存在
+  94          uint8 DHT11_Check()        
+  95          {   
+  96   1              uint8 retry=0;   
+  97   1          while (DHT11_DQ_OUT&&retry<100)//DHT11会拉低40~50us
+  98   1              {
+  99   2                      retry++;
+ 100   2                      _nop_();
+ 101   2              };       
+ 102   1              if(retry>=100)return 1;
+ 103   1              else retry=0;
+ 104   1          while (!DHT11_DQ_OUT&&retry<100)//DHT11拉低后会再次拉高40~50us
+ 105   1              {
+ 106   2                      retry++;
+ 107   2                      _nop_();
+ 108   2              };
+ 109   1              if(retry>=100)return 1;     
+ 110   1              return 0;
+ 111   1      }
+ 112          
+ 113          
+ 114          //DHT11初始化 
+ 115          //返回0：初始化成功，1：失败
+ 116          uint8 DHT11_Init()
+ 117          {
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 3   
+
+ 118   1              DHT11_Rst();      
+ 119   1              return DHT11_Check();   
+ 120   1      }
+ 121          
+ 122          
+ 123          //从DHT11读取一个位
+ 124          //返回值：1/0
+ 125          uint8 DHT11_Read_Bit(void)                       
+ 126          {
+ 127   1              uint8 retry=0;
+ 128   1              while(DHT11_DQ_OUT&&retry<100)//等待变为低电平 12-14us 开始
+ 129   1              {
+ 130   2                      retry++;
+ 131   2                      _nop_();
+ 132   2              }
+ 133   1              retry=0;
+ 134   1              while((!DHT11_DQ_OUT)&&retry<100)//等待变高电平  26-28us表示0,116-118us表示1
+ 135   1              {
+ 136   2                      retry++;
+ 137   2                      _nop_();
+ 138   2              }
+ 139   1              delay(1);//等待40us
+ 140   1              if(DHT11_DQ_OUT)return 1;
+ 141   1              else return 0;             
+ 142   1      }
+ 143          
+ 144          //从DHT11读取一个字节
+ 145          //返回值：读到的数据
+ 146          uint8 DHT11_Read_Byte(void)    
+ 147          {        
+ 148   1          uint8 i,dat=0;
+ 149   1              for (i=0;i<8;i++) 
+ 150   1              {
+ 151   2                      dat<<=1; 
+ 152   2                  dat|=DHT11_Read_Bit();
+ 153   2          }                                               
+ 154   1          return dat;
+ 155   1      }
+ 156          
+ 157          //从DHT11读取一次数据
+ 158          //temp:温度值(范围:0~50°)
+ 159          //humi:湿度值(范围:20%~90%)
+ 160          //返回值：0,正常;1,读取失败
+ 161          uint8 DHT11_Read_Data(uint8 *temp,uint8 *humi)    
+ 162          {        
+ 163   1              uint8 buf[5];
+ 164   1              uint8 i;
+ 165   1              DHT11_Rst();
+ 166   1              if(DHT11_Check()==0)
+ 167   1              {
+ 168   2                      for(i=0;i<5;i++)//读取40位数据
+ 169   2                      {
+ 170   3                              buf[i]=DHT11_Read_Byte();
+ 171   3                      }
+ 172   2                      if((buf[0]+buf[1]+buf[2]+buf[3])==buf[4])
+ 173   2                      {
+ 174   3                              *humi=buf[0];
+ 175   3                              *temp=buf[2];
+ 176   3                      }
+ 177   2                      
+ 178   2              }else return 1;
+ 179   1              return 0;           
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 4   
+
+ 180   1      }
+ 181          
+ 182          
+ 183          
+ 184          
+ 185          void ds18b20init()              //18b20的初始化
+ 186          {
+ 187   1              dq=1;
+ 188   1              delay(1);
+ 189   1              dq=0;
+ 190   1              delay(80);
+ 191   1              dq=1;
+ 192   1              delay(5);
+ 193   1              dq=0;
+ 194   1              delay(20);
+ 195   1              dq=1;
+ 196   1              delay(35);
+ 197   1      }
+ 198          void ds18b20wr(uint8 dat)         //18b20写数据
+ 199          {
+ 200   1              uint8 i;
+ 201   1              for(i=0;i<8;i++)
+ 202   1              {
+ 203   2                      dq=0;
+ 204   2                      dq=dat&0x01;
+ 205   2                      dat>>=1;
+ 206   2                      delay(8);//在时序上只有这一块对时序要求最准确，他的时间必须大于15us
+ 207   2                      dq=1;
+ 208   2                      delay(1);
+ 209   2              }       
+ 210   1      }
+ 211          uint8 ds18b20rd()                 //18b20读数据
+ 212          {
+ 213   1              uint8 value,i;
+ 214   1              for(i=0;i<8;i++)        
+ 215   1              {
+ 216   2                      dq=0;
+ 217   2                      value>>=1;
+ 218   2                      dq=1;
+ 219   2                      if(dq==1)value|=0x80;
+ 220   2                      delay(8);//在这一块也对时间要求特别准确，整段程序必须大于60us           
+ 221   2              }
+ 222   1              return value;
+ 223   1      }
+ 224          uint8 readtemp()                          //读取温度内需要复位的
+ 225          {
+ 226   1              uint8 b;
+ 227   1              ds18b20init();          //初始化
+ 228   1              ds18b20wr(0xcc);   //发送忽略ROM指令
+ 229   1              ds18b20wr(0x44);   //发送温度转换指令
+ 230   1              delay(100);
+ 231   1              ds18b20init();     //初始化
+ 232   1              ds18b20wr(0xcc);   //发送忽略ROM指令
+ 233   1              ds18b20wr(0xbe);   //发读暂存器指令
+ 234   1              a=ds18b20rd();   //温度的低八位
+ 235   1              b=ds18b20rd();   //温度的高八位
+ 236   1              b<<=4;                   //ssss s***；s为标志位s=0表示温度值为正数，s=1温度值为负数
+ 237   1              c=b&0x80;               //温度正负标志位确认
+ 238   1              b+=(a&0xf0)>>4;
+ 239   1              a=a&0x0f;         //温度的小数部分
+ 240   1              return b;
+ 241   1      }
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 5   
+
+ 242          
+ 243          
+ 244          void key_pros()  //按键处理函数
+ 245          {
+ 246   1              if(k1==0)
+ 247   1              {
+ 248   2                      delay(1000);
+ 249   2                      if(k1==0)
+ 250   2                      {
+ 251   3                              mode++;
+ 252   3                              if(mode==5)mode=0;
+ 253   3                              wrc(0x01);
+ 254   3                      }
+ 255   2                      while(!k1);
+ 256   2              }
+ 257   1              if(mode==1)               //对温度上限设定
+ 258   1              {
+ 259   2                      if(k2==0)                 //加
+ 260   2                      {
+ 261   3                              delay(1000);
+ 262   3                              if(k2==0)
+ 263   3                              {
+ 264   4                                      temph++;
+ 265   4                                      if(temph>=80)temph=80;
+ 266   4                              }
+ 267   3                              while(!k2);
+ 268   3                      }
+ 269   2                      if(k3==0)          //减
+ 270   2                      {
+ 271   3                              delay(1000);
+ 272   3                              if(k3==0)
+ 273   3                              {
+ 274   4                                      temph--;
+ 275   4                                      if(temph<=0)temph=0;
+ 276   4                              }
+ 277   3                              while(!k3);
+ 278   3                      }
+ 279   2              }
+ 280   1              if(mode==2)               //对温度下限设定
+ 281   1              {
+ 282   2                      if(k2==0)                 //加
+ 283   2                      {
+ 284   3                              delay(1000);
+ 285   3                              if(k2==0)
+ 286   3                              {
+ 287   4                                      templ++;
+ 288   4                                      if(templ>=80)templ=80;
+ 289   4                              }
+ 290   3                              while(!k2);
+ 291   3                      }
+ 292   2                      if(k3==0)          //减
+ 293   2                      {
+ 294   3                              delay(1000);
+ 295   3                              if(k3==0)
+ 296   3                              {
+ 297   4                                      templ--;
+ 298   4                                      if(templ<=0)templ=0;
+ 299   4                              }
+ 300   3                              while(!k3);
+ 301   3                      }
+ 302   2              }
+ 303   1              if(mode==3)               //对湿度上限设定
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 6   
+
+ 304   1              {
+ 305   2                      if(k2==0)                 //加
+ 306   2                      {
+ 307   3                              delay(1000);
+ 308   3                              if(k2==0)
+ 309   3                              {
+ 310   4                                      humih++;
+ 311   4                                      if(humih>=80)humih=80;
+ 312   4                              }
+ 313   3                              while(!k2);
+ 314   3                      }
+ 315   2                      if(k3==0)          //减
+ 316   2                      {
+ 317   3                              delay(1000);
+ 318   3                              if(k3==0)
+ 319   3                              {
+ 320   4                                      humih--;
+ 321   4                                      if(humih<=0)humih=0;
+ 322   4                              }
+ 323   3                              while(!k3);
+ 324   3                      }
+ 325   2              }
+ 326   1              if(mode==4)               //对湿度下限设定
+ 327   1              {
+ 328   2                      if(k2==0)                 //加
+ 329   2                      {
+ 330   3                              delay(1000);
+ 331   3                              if(k2==0)
+ 332   3                              {
+ 333   4                                      humil++;
+ 334   4                                      if(humil>=80)humil=80;
+ 335   4                              }
+ 336   3                              while(!k2);
+ 337   3                      }
+ 338   2                      if(k3==0)          //减
+ 339   2                      {
+ 340   3                              delay(1000);
+ 341   3                              if(k3==0)
+ 342   3                              {
+ 343   4                                      humil--;
+ 344   4                                      if(humil<=0)humil=0;
+ 345   4                              }
+ 346   3                              while(!k3);
+ 347   3                      }
+ 348   2              }
+ 349   1      }
+ 350          
+ 351          void lcd_init_display()    //LCD初始化显示
+ 352          {
+ 353   1              uint8 i;
+ 354   1              for(i=0;i<5;i++)
+ 355   1              {
+ 356   2                      wrc(0x80+i);
+ 357   2                      wrd(str1[i]);   
+ 358   2              }
+ 359   1      
+ 360   1              for(i=0;i<5;i++)
+ 361   1              {
+ 362   2                      wrc(0xc0+i);
+ 363   2                      wrd(str2[i]);   
+ 364   2              }
+ 365   1      }
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 7   
+
+ 366          
+ 367          void data_pros()        //数据处理函数
+ 368          {
+ 369   1              uint8 i;            
+ 370   1              uint8 temp_buf[2],humi_buf[2];
+ 371   1              uint8 temphbuf[2],templbuf[2],humihbuf[2],humilbuf[2];
+ 372   1              float dio;
+ 373   1              uint16 k;
+ 374   1      
+ 375   1              tempvalue=readtemp();
+ 376   1              DHT11_Read_Data(&temp,&humi);
+ 377   1              temp_buf[0]=temp/10+0x30;       
+ 378   1              temp_buf[1]=temp%10+0x30;
+ 379   1      
+ 380   1              humi_buf[0]=humi/10+0x30;       
+ 381   1              humi_buf[1]=humi%10+0x30;
+ 382   1              
+ 383   1              dio=a*0.0625;
+ 384   1              k=dio*10000;//取小数点后两位有效数字
+ 385   1      
+ 386   1              temphbuf[0]=temph/10+0x30;
+ 387   1              temphbuf[1]=temph%10+0x30;
+ 388   1              templbuf[0]=templ/10+0x30;
+ 389   1              templbuf[1]=templ%10+0x30;
+ 390   1      
+ 391   1              humihbuf[0]=humih/10+0x30;
+ 392   1              humihbuf[1]=humih%10+0x30;
+ 393   1              humilbuf[0]=humil/10+0x30;
+ 394   1              humilbuf[1]=humil%10+0x30;
+ 395   1      
+ 396   1              if(mode==0)
+ 397   1              {
+ 398   2                      lcd_init_display();
+ 399   2                      wrc(0x85);
+ 400   2                      wrd(num[tempvalue%100/10]);
+ 401   2                      wrd(num[tempvalue%100%10]);
+ 402   2                      wrd('.');
+ 403   2                      wrd(num[k/1000]);
+ 404   2                      wrd(0xdf);
+ 405   2                      wrd('C');
+ 406   2              
+ 407   2                      for(i=0;i<2;i++)
+ 408   2                      {
+ 409   3                              wrc(0Xc5+i);
+ 410   3                              wrd(humi_buf[i]);                 
+ 411   3                      }       
+ 412   2                      for(i=0;i<3;i++)
+ 413   2                      {
+ 414   3                              wrc(0Xc7+i);
+ 415   3                              wrd(str5[i]);             
+ 416   3                      }       
+ 417   2              }
+ 418   1              if(mode==1)                       //温度上限显示
+ 419   1              {
+ 420   2                      wrc(0x80);
+ 421   2                      for(i=0;i<6;i++)
+ 422   2                      {
+ 423   3                              wrd(str6[i]);             
+ 424   3                      }
+ 425   2                      wrd(temphbuf[0]);
+ 426   2                      wrd(temphbuf[1]);                       
+ 427   2              }
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 8   
+
+ 428   1              if(mode==2)                       //温度下限显示
+ 429   1              {
+ 430   2                      wrc(0x80);
+ 431   2                      for(i=0;i<6;i++)
+ 432   2                      {
+ 433   3                              wrd(str7[i]);             
+ 434   3                      }
+ 435   2                      wrd(templbuf[0]);
+ 436   2                      wrd(templbuf[1]);                       
+ 437   2              }
+ 438   1              if(mode==3)                       //湿度上限显示
+ 439   1              {
+ 440   2                      wrc(0x80);
+ 441   2                      for(i=0;i<6;i++)
+ 442   2                      {
+ 443   3                              wrd(str8[i]);             
+ 444   3                      }
+ 445   2                      wrd(humihbuf[0]);
+ 446   2                      wrd(humihbuf[1]);                       
+ 447   2              }
+ 448   1              if(mode==4)                       //湿度下限显示
+ 449   1              {
+ 450   2                      wrc(0x80);
+ 451   2                      for(i=0;i<6;i++)
+ 452   2                      {
+ 453   3                              wrd(str9[i]);             
+ 454   3                      }
+ 455   2                      wrd(humilbuf[0]);
+ 456   2                      wrd(humilbuf[1]);                       
+ 457   2              }
+ 458   1      }
+ 459          
+ 460          void baojinpros()       //报警处理
+ 461          {
+ 462   1              if(tempvalue>=temph||humi>=humih)        //检测温度或者湿度高于设定上限值 降温湿
+ 463   1              {
+ 464   2                      led1=1;         //降温湿指示灯
+ 465   2                      led2=0;
+ 466   2              }
+ 467   1              if(tempvalue<=templ||humi<=humil)       //检测温度或者湿度低于设定下限值  升温湿
+ 468   1              {
+ 469   2                      led1=0;
+ 470   2                      led2=1;    //升高温湿指示灯
+ 471   2              }
+ 472   1              if((tempvalue>templ&&tempvalue<temph)&&(humi>humil&&humi<humih))
+ 473   1              {
+ 474   2                      led1=0;
+ 475   2                      led2=0; 
+ 476   2              }
+ 477   1      }
+ 478          
+ 479          void main()
+ 480          {
+ 481   1              uint8 i=0;
+ 482   1              led1=0;
+ 483   1              led2=0;
+ 484   1              lcd_init();
+ 485   1              while(DHT11_Init())     //检测DHT11是否纯在
+ 486   1              {
+ 487   2                      for(i=0;i<5;i++)
+ 488   2                      {
+ 489   3                              wrc(0x80+i);
+C51 COMPILER V9.01   1                                                                     04/22/2016 13:55:20 PAGE 9   
+
+ 490   3                              wrd(str3[i]);   
+ 491   3                      }                       
+ 492   2              }
+ 493   1              wrc(0x01);
+ 494   1              lcd_init_display();        //LCD初始化显示
+ 495   1              i=0;
+ 496   1              while(1)
+ 497   1              {       
+ 498   2                      i++;
+ 499   2                      key_pros();
+ 500   2                      baojinpros();   //报警处理
+ 501   2                      if(i==15)
+ 502   2                      {
+ 503   3                              i=0;
+ 504   3                              data_pros();     //读取一次DHT11数据最少要大于100ms
+ 505   3                      }
+ 506   2                      delay(1000); 
+ 507   2                      
+ 508   2              }       
+ 509   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1642    ----
+   CONSTANT SIZE    =     72    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     12      31
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

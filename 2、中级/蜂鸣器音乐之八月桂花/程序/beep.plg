@@ -1,0 +1,16 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+H:\普中HC6800-ES V2.0开发板资料\实验程序\中级实验例程\蜂鸣器音乐之八月桂花\beep.uvproj
+Project File Date:  05/08/2015
+
+<h2>Output:</h2>
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling beep.c...
+linking...
+Program Size: data=10.0 xdata=0 code=452
+creating hex file from "beep"...
+"beep" - 0 Error(s), 0 Warning(s).

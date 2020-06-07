@@ -1,0 +1,4 @@
+"STARTUP.obj",
+"测温湿度程序.obj" 
+TO "测温湿度程序" 
+RAMSIZE(256) 

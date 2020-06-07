@@ -1,0 +1,517 @@
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE 瞋蝊湿度程序
+OBJECT MODULE PLACED IN 测温湿度程序.OBJ
+COMPILER INVOKED BY: J:\mdk4\C51\BIN\C51.EXE 测温湿度程序.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /**************************************************************** 
+   2          
+   3          声明：本程序仅供大家参考学习，未经本人同意禁止用于商业用途。
+   4          
+   5          ***************************************************************/
+   6          #include <reg52.h>
+   7          #define uint unsigned int 
+   8          #define uchar unsigned char
+   9          #include <intrins.h>
+  10          
+  11          typedef bit BOOL  ; 
+  12          
+  13          sbit io = P1^1 ;//(口线定义)
+  14          sbit bee=P1^0;
+  15          sbit rs = P2^5 ; 
+  16          sbit rw = P2^6 ;
+  17          sbit ep = P2^7 ;
+  18          bit flag_300ms ;
+  19          
+  20          sbit K1=P1^2;
+  21          sbit K2=P1^3;
+  22          sbit K3=P1^4;
+  23          
+  24          uchar yemian=0;//（定义变量）
+  25          uchar flat=1;
+  26          uchar data_byte;
+  27          uchar RH,RL,TH,TL;
+  28          uchar WenDu,ShiDu;//报警的温度和湿度
+  29          #include "eeprom52.h"
+  30          
+  31          
+  32          /****************************延时程序****************************/
+  33          void delay(uchar ms)
+  34          {       // 延时子程序
+  35   1               uchar i ;
+  36   1               while(ms--)
+  37   1               {
+  38   2                      for(i = 0 ; i<250;i++) ;
+  39   2               }
+  40   1      }
+  41          
+  42          void delay1()//延时10us
+  43          {
+  44   1              uchar i;
+  45   1              i--;
+  46   1              i--;
+  47   1              i--;
+  48   1              i--;
+  49   1              i--;
+  50   1              i--;
+  51   1      }
+  52          void longdelay(uchar s) //长延时
+  53          {
+  54   1               while(s--)
+  55   1               {
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 2   
+
+  56   2                      delay(20) ;
+  57   2               }
+  58   1      }
+  59          
+  60          
+  61          
+  62          /******************把数据保存到单片机内部eeprom中******************/
+  63          void write_eeprom()
+  64          {
+  65   1              SectorErase(0x2000);
+  66   1              byte_write(0x2000, WenDu);
+  67   1              byte_write(0x2001, ShiDu);
+  68   1              byte_write(0x2060, a_a);        
+  69   1      }
+  70          
+  71          /******************把数据从单片机内部eeprom中读出来*****************/
+  72          void read_eeprom()
+  73          {
+  74   1              WenDu   = byte_read(0x2000);
+  75   1        ShiDu = byte_read(0x2001);
+  76   1              a_a      = byte_read(0x2060);
+  77   1      }
+  78          
+  79          /**************开机自检eeprom初始化*****************/
+  80          void init_eeprom()
+  81          {
+  82   1              read_eeprom();          //先读
+  83   1              if(a_a != 2)            //新的单片机初始单片机内问eeprom
+  84   1              {
+  85   2              WenDu   = 30;
+  86   2              ShiDu   = 80;
+  87   2                      a_a = 2;
+  88   2                      write_eeprom();
+  89   2              }       
+  90   1      }
+  91          
+  92          
+  93          
+  94          /********************报警程序部分*******************/
+  95          void warn()  //报警函数
+  96          {
+  97   1              
+  98   1        if(TH>=WenDu)  //检测的温度高于设定温度报警值
+  99   1                                                   
+ 100   1           { 
+ 101   2            bee=0; //报警
+ 102   2                              
+ 103   2           }      
+ 104   1                       
+ 105   1              if(RH>=ShiDu)  //检测的湿度高于设定的湿度值
+ 106   1                                                   
+ 107   1           { 
+ 108   2            bee=0; //报警
+ 109   2           }      
+ 110   1      
+ 111   1                       
+ 112   1              if( TH<WenDu  &&  RH<ShiDu )     
+ 113   1          {
+ 114   2                        bee=1; //停止报警
+ 115   2                      }
+ 116   1                       
+ 117   1        
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 3   
+
+ 118   1      }
+ 119          
+ 120          /************************LCD模块******************************************/
+ 121          
+ 122          BOOL lcd_bz()//测试LCD忙碌状态
+ 123          {      
+ 124   1               BOOL result ;
+ 125   1               rs = 0 ;
+ 126   1               rw = 1 ;
+ 127   1               ep = 1 ;
+ 128   1               result = (BOOL)(P0 & 0x80) ;
+ 129   1               ep = 0 ;
+ 130   1               return result ; 
+ 131   1      }
+ 132          
+ 133          void write_cmd(uchar cmd)// 写指令
+ 134          {       
+ 135   1              while(lcd_bz()) ;
+ 136   1              rs = 0 ;
+ 137   1              rw = 0 ;
+ 138   1              ep = 0 ;
+ 139   1              P0 = cmd ;
+ 140   1              ep = 1 ;
+ 141   1              ep = 0 ;  
+ 142   1      }
+ 143          
+ 144          void write_addr(uchar addr)//写地址
+ 145          {       
+ 146   1              write_cmd(addr|0x80) ;
+ 147   1      }
+ 148          
+ 149          void write_byte(uchar dat)//写字节
+ 150          {      
+ 151   1              while(lcd_bz()) ;
+ 152   1              rs = 1 ;
+ 153   1              rw = 0 ;
+ 154   1              ep = 0 ;
+ 155   1              P0 = dat ;
+ 156   1              ep = 1 ;
+ 157   1              ep = 0 ; 
+ 158   1      }
+ 159          
+ 160          void lcd_init()// 初始化
+ 161          {       
+ 162   1               write_cmd(0x38) ; 
+ 163   1               delay(1);
+ 164   1               write_cmd(0x08) ;  
+ 165   1               delay(1);
+ 166   1               write_cmd(0x01) ; 
+ 167   1               delay(1);
+ 168   1               write_cmd(0x06) ;
+ 169   1               delay(1);
+ 170   1               write_cmd(0x0c) ; 
+ 171   1               delay(1);
+ 172   1      }
+ 173          
+ 174          void display(uchar addr, uchar q)//在某一地址上显示一字节
+ 175          {        
+ 176   1               delay(1) ;
+ 177   1               write_addr(addr) ;
+ 178   1         write_byte(q) ;
+ 179   1               delay(1) ;
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 4   
+
+ 180   1               
+ 181   1      }
+ 182          
+ 183          /*********************** DHT11测试模块***************************************/
+ 184          
+ 185          void start()//开始信号
+ 186          {
+ 187   1              io=1;
+ 188   1              delay1();
+ 189   1              io=0;
+ 190   1              delay(20);//>18ms
+ 191   1              io=1;
+ 192   1              delay1();//20-40us
+ 193   1              delay1();
+ 194   1              delay1();
+ 195   1              delay1();
+ 196   1              delay1();
+ 197   1      }
+ 198          uchar receive_byte()//接收一个字节
+ 199          {
+ 200   1              uchar i,temp,count;
+ 201   1              for(i=0;i<8;i++)
+ 202   1              {
+ 203   2              temp=0;
+ 204   2                      delay1();delay1();delay1();delay1();
+ 205   2                      if(io==1)temp=1;
+ 206   2                      count=2;
+ 207   2                      while((io)&&count++);
+ 208   2                      if(count==1)break;
+ 209   2                      data_byte<<=1;  
+ 210   2                      data_byte|=temp;
+ 211   2              }
+ 212   1              return data_byte;
+ 213   1      }
+ 214          void receive()//接收数据
+ 215          {
+ 216   1              uchar T_H,T_L,R_H,R_L,check,num_check;
+ 217   1              uchar count;
+ 218   1              start();//开始信号
+ 219   1              io=1;
+ 220   1              if(!io)//读取DHT11响应信号
+ 221   1              {
+ 222   2              
+ 223   2              while((io)&&count++);
+ 224   2              R_H=receive_byte();
+ 225   2              R_L=receive_byte();
+ 226   2              T_H=receive_byte();
+ 227   2              T_L=receive_byte();
+ 228   2              check=receive_byte();
+ 229   2              io=0;//拉低延时50us
+ 230   2              delay1();delay1();delay1();delay1();delay1();
+ 231   2              io=1;
+ 232   2              num_check=R_H+R_L+T_H+T_L;
+ 233   2              if(num_check=check)
+ 234   2              {
+ 235   3                      RH=R_H;
+ 236   3                      RL=R_L;
+ 237   3                      TH=T_H;
+ 238   3                      TL=T_L;
+ 239   3                      check=num_check;
+ 240   3              }
+ 241   2              }
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 5   
+
+ 242   1      }
+ 243          
+ 244          
+ 245          void showw()   // 问候语函数
+ 246          {      
+ 247   1                 lcd_init(); //初始化
+ 248   1                  delay(10);
+ 249   1              
+ 250   1           display(0x05,'W');
+ 251   1           display(0x06,'e');
+ 252   1                       display(0x07,'l');
+ 253   1                       display(0x08,'c');
+ 254   1                       display(0x09,'o');
+ 255   1                       display(0x0a,'m');
+ 256   1           display(0x0b,'e');
+ 257   1                 delay(250); //短暂延时
+ 258   1                 delay(250);
+ 259   1                 delay(250);
+ 260   1                 
+ 261   1      
+ 262   1      /*********************************/
+ 263   1      /*
+ 264   1                 display(0x40,' ') ;
+ 265   1                       display(0x41,'h');
+ 266   1                       display(0x42,'e');
+ 267   1                      
+ 268   1       */
+ 269   1      }
+ 270          
+ 271          
+ 272          /*************定时器0初始化程序***************/
+ 273          void time_init()          
+ 274          {
+ 275   1              EA   = 1;                 //开总中断
+ 276   1              TMOD = 0X01;      //定时器0、定时器1工作方式1
+ 277   1              ET0  = 1;                 //开定时器0中断 
+ 278   1              TR0  = 1;                 //允许定时器0定时
+ 279   1      }
+ 280          
+ 281          
+ 282          
+ 283          void key() //按键程序 选择菜单模式
+ 284          {
+ 285   1           
+ 286   1                if(!K1)
+ 287   1                         {  
+ 288   2                                delay(20);
+ 289   2                                  if(!K1)
+ 290   2                               {   
+ 291   3                                                               while(!K1)
+ 292   3                                                 ;
+ 293   3                                                                yemian++;
+ 294   3                                                                flat++;
+ 295   3                                                                      if(yemian>=3) { yemian=0; } 
+ 296   3                                                                      
+ 297   3                   }
+ 298   2                         }
+ 299   1       
+ 300   1              
+ 301   1              
+ 302   1      }
+ 303          
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 6   
+
+ 304          
+ 305          shezhi()  //对里面的数值进行修改
+ 306          {
+ 307   1          if(!K2)
+ 308   1                         {  
+ 309   2                                delay(50);
+ 310   2                                  if(!K2)
+ 311   2                               {   
+ 312   3                                                               ;
+ 313   3                                                               
+ 314   3                                                               if(yemian==1)
+ 315   3                                                               {
+ 316   4                                                                WenDu+=1;
+ 317   4                                                                      if(WenDu>99) { WenDu=99; }  //湿度上限加
+ 318   4                                                               }
+ 319   3                                                               
+ 320   3                                                               if(yemian==2)
+ 321   3                                                               {
+ 322   4                                                                ShiDu+=1;
+ 323   4                                                                      if(ShiDu>99) { ShiDu=99; }  //湿度下限加
+ 324   4                                                               }
+ 325   3                                                               
+ 326   3                                                                      write_eeprom();       //保存数据                
+ 327   3                   }
+ 328   2                         }
+ 329   1                               
+ 330   1                                if(!K3)
+ 331   1                         {  
+ 332   2                                  delay(50);
+ 333   2                                   if(!K3)
+ 334   2                               {   
+ 335   3                                                              
+ 336   3                                                 ;
+ 337   3                                                                 if(yemian==1)
+ 338   3                                                                   {
+ 339   4                                                                    WenDu-=1;          //湿度下限减
+ 340   4                                                                          if(WenDu<1) {WenDu=1; } 
+ 341   4                                                                   }
+ 342   3                                                               
+ 343   3                                                                 if(yemian==2)
+ 344   3                                                                   {
+ 345   4                                                                    ShiDu-=1;         //湿度下限减
+ 346   4                                                                          if(ShiDu<1) { ShiDu=1; } 
+ 347   4                                                                   }
+ 348   3                                                                      write_eeprom();       //保存数据                
+ 349   3                   }
+ 350   2                         }
+ 351   1      
+ 352   1      }
+ 353          
+ 354          
+ 355          
+ 356          /***************************主程序*********************************/
+ 357          void main()
+ 358          {
+ 359   1               init_eeprom();                         //读eeprom数据
+ 360   1         time_init();                         //初始化定时器 
+ 361   1         showw();    //显示问候语 和名字
+ 362   1        
+ 363   1              while(1)
+ 364   1              {   
+ 365   2                      
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 7   
+
+ 366   2                         key();
+ 367   2                      //====================yemian==0时 进入工作状态=================================
+ 368   2                              if(yemian==0)  
+ 369   2                              { 
+ 370   3                                      if(flat==1)
+ 371   3                                       {
+ 372   4                 flat=0;
+ 373   4                                               lcd_init(); //初始化
+ 374   4                                                       
+ 375   4                                               display(0x00,'T') ;    //Temp
+ 376   4                             display(0x01,'e');
+ 377   4                             display(0x02,'m');
+ 378   4                                               display(0x03,'p');
+ 379   4                 display(0x04,':');
+ 380   4                                               
+ 381   4                                               display(0x08,0xdf); // 度
+ 382   4                             display(0x09,'C');
+ 383   4                                               
+ 384   4                                               
+ 385   4                                               display(0x40,'H') ;    //Humi
+ 386   4                             display(0x41,'u');
+ 387   4                             display(0x42,'m');
+ 388   4                                               display(0x43,'i');
+ 389   4                 display(0x44,':');
+ 390   4                                               
+ 391   4                                               display(0x47,'%');
+ 392   4                                               display(0x48,'R');
+ 393   4                                               display(0x49,'H');
+ 394   4                                               
+ 395   4                                               display(0x0c,'T');
+ 396   4                 display(0x0d,':');
+ 397   4                 display(0x0e,WenDu/10+0x30);  //报警温度
+ 398   4                             display(0x0f,WenDu%10+0x30);
+ 399   4                                         
+ 400   4                                               display(0x4c,'H');
+ 401   4                 display(0x4d,':');
+ 402   4                                         display(0x4e,ShiDu/10+0x30);  //报警湿度
+ 403   4                             display(0x4f,ShiDu%10+0x30);
+ 404   4                
+ 405   4                }
+ 406   3                              
+ 407   3                               if(flag_300ms == 1)
+ 408   3                       {              
+ 409   4                                   flag_300ms = 0;
+ 410   4                 receive();
+ 411   4                                               
+ 412   4                                               display(0x05,TH/10+0x30);  //温度显示
+ 413   4                             display(0x06,TH%10+0x30);
+ 414   4                                               
+ 415   4                 display(0x45,RH/10+0x30);  //湿度显示
+ 416   4                             display(0x46,RH%10+0x30);
+ 417   4                                               
+ 418   4                                              
+ 419   4                 warn();
+ 420   4                           }
+ 421   3                              
+ 422   3              }               
+ 423   2                              
+ 424   2              //====================yemian==1 温度设置===========================
+ 425   2                                      if(yemian==1)  //温度
+ 426   2                              {
+ 427   3                               if(flat==1)
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 8   
+
+ 428   3                                           {
+ 429   4                     flat=0;  
+ 430   4                                                                bee=1;
+ 431   4                     lcd_init(); //初始化
+ 432   4                                                               display(0x06,'T');
+ 433   4                                                               display(0x07,'e');
+ 434   4                                                               display(0x08,'m');
+ 435   4                                                               display(0x09,'p');
+ 436   4                   }
+ 437   3                                                       
+ 438   3                                                      shezhi();
+ 439   3                                                      display(0x47,WenDu/10+0x30);  //温度
+ 440   3                              display(0x48,WenDu%10+0x30);
+ 441   3                            }
+ 442   2                              
+ 443   2                      //====================yemian==1湿度设置==========================       
+ 444   2                                      if(yemian==2)   //湿度设置
+ 445   2                                  {
+ 446   3                               if(flat==1)
+ 447   3                                           {
+ 448   4                     flat=0;  
+ 449   4                                                                bee=1;
+ 450   4                     lcd_init(); //初始化
+ 451   4                                                               display(0x06,'H');
+ 452   4                                                               display(0x07,'u');
+ 453   4                                                               display(0x08,'m');
+ 454   4                                                               display(0x09,'i');
+ 455   4                                                       } 
+ 456   3                                                       shezhi();
+ 457   3                                                       display(0x47,ShiDu/10+0x30);  //湿度
+ 458   3                               display(0x48,ShiDu%10+0x30);
+ 459   3                            }
+ 460   2              }
+ 461   1      }
+ 462          
+ 463          
+ 464          
+ 465          /*************定时器0中断服务程序***************/
+ 466          void time0_int() interrupt 1
+ 467          {       
+ 468   1              static uchar value;
+ 469   1              TH0 = 0x3c;
+ 470   1              TL0 = 0xb0;     // 50ms
+ 471   1               
+ 472   1              if(value % 6 == 0)
+ 473   1              {
+ 474   2                      flag_300ms = 1;    //300ms
+ 475   2                      value = 0;
+ 476   2              }
+ 477   1      }
+*** WARNING C290 IN LINE 352 OF 测温湿度程序.C: missing return value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1239    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     11       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1       1
+END OF MODULE INFORMATION.
+
+C51 COMPILER V9.01   瞋蝊湿度程序                                                          05/14/2016 09:06:34 PAGE 9   
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

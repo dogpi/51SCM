@@ -1,0 +1,110 @@
+C51 COMPILER V9.01   定时器设计的门铃                                                      05/17/2016 09:45:50 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE 定时器设计的门铃
+OBJECT MODULE PLACED IN 定时器设计的门铃.OBJ
+COMPILER INVOKED BY: J:\mdk4\C51\BIN\C51.EXE 定时器设计的门铃.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /* 下载程序后按键K1按下就会触发蜂鸣器门铃“叮咚”响  */
+   2          
+   3          #include<reg52.h>
+   4          typedef unsigned char u8;
+   5          typedef unsigned int u16;
+   6          sbit beep=P1^5;
+   7          sbit k1=P3^1;
+   8          u8 ding,dong,flag,stop;
+   9          u16 n;
+  10          void delay(u16 i)
+  11          {
+  12   1              while(i--);
+  13   1      }
+  14          void time0init()          //定时器0初始化
+  15          {
+  16   1              TMOD=0X01;       //定时器0 方式1
+  17   1              TH0=0Xff;
+  18   1              TL0=0X06; //定时250us
+  19   1      //      TR0=1;
+  20   1              EA=1;
+  21   1              ET0=1;
+  22   1      }
+  23          void biaohaoinit()         //各个标号初始化
+  24          {
+  25   1              ding=0;         //叮声音  计数标志
+  26   1              dong=0;         //咚声音  计数标志
+  27   1              n=0;            //定时0.5s标志
+  28   1              flag=0;
+  29   1              stop=0;    //结束标志
+  30   1      }
+  31          void main()
+  32          {
+  33   1              time0init();
+  34   1              biaohaoinit();
+  35   1              while(1)
+  36   1              {
+  37   2                      if(k1==0)          //判断按键是否按下
+  38   2                      {
+  39   3                              delay(1000);  //消抖
+  40   3                              if(k1==0)
+  41   3                              {
+  42   4                                      TR0=1;  //打开定时器0
+  43   4                                      while(!stop);
+  44   4                              }
+  45   3                      }       
+  46   2              }       
+  47   1      }
+  48          void time0() interrupt 1
+  49          {
+  50   1              n++;
+  51   1              TH0=0Xff;
+  52   1              TL0=0X06; //250us
+  53   1              if(n==2000)             //定时0.5s  叮响0.5秒，咚响0.5秒
+  54   1              {
+  55   2                      n=0;
+C51 COMPILER V9.01   定时器设计的门铃                                                      05/17/2016 09:45:50 PAGE 2   
+
+  56   2                      if(flag==0)
+  57   2                      {
+  58   3                              flag=~flag;
+  59   3                      }
+  60   2                      else
+  61   2                      {
+  62   3                              flag=0;
+  63   3                              stop=1;
+  64   3                              TR0=0;    //关闭定时器0
+  65   3                      }
+  66   2              }
+  67   1              if(flag==0)
+  68   1              {                                          //通过改变定时计数时间可以改变门铃的声音
+  69   2                      ding++;                   //叮
+  70   2                      if(ding==1)
+  71   2                      {
+  72   3                              ding=0;
+  73   3                              beep=~beep;
+  74   3                      }
+  75   2              }
+  76   1              else
+  77   1              {
+  78   2                      dong++;
+  79   2                      if(dong==2)               //咚
+  80   2                      {
+  81   3                              dong=0;
+  82   3                              beep=~beep;
+  83   3                      }       
+  84   2              }
+  85   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    152    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      6    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

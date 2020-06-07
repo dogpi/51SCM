@@ -1,0 +1,151 @@
+C51 COMPILER V9.01   MAIN                                                                  05/07/2016 17:30:13 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: J:\mdk4\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          
+   2          
+   3          #include "reg52.h"                       //此文件中定义了单片机的一些特殊功能寄存器
+   4          
+   5          typedef unsigned int u16;         //对数据类型进行声明定义
+   6          typedef unsigned char u8;
+   7          
+   8          sbit LSA=P2^2;
+   9          sbit LSB=P2^3;
+  10          sbit LSC=P2^4;
+  11          
+  12          sbit k1=P3^1;
+  13          sbit k2=P3^0;
+  14          sbit k3=P3^2;
+  15          sbit k4=P3^3;    //定义按键端口
+  16          
+  17          u8 code smgduan[17]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,
+  18                                                  0x7f,0x6f,0x77,0x7c,0x39,0x5e,0x79,0x71};//显示0~F的值
+  19          
+  20          
+  21          #define KEY1 1
+  22          #define KEY2 2
+  23          #define KEY3 3
+  24          #define KEY4 4
+  25          
+  26          char keynum;
+  27          u8 DisplayData[8];
+  28          /*******************************************************************************
+  29          * 函 数 名         : delay
+  30          * 函数功能                 : 延时函数，i=1时，大约延时10us
+  31          *******************************************************************************/
+  32          void delay(u16 i)
+  33          {
+  34   1              while(i--);     
+  35   1      }
+  36          
+  37          //mode=0 单次   1：连续
+  38          u8 KeyScan(u8 mode)
+  39          {
+  40   1              static u8 keyen=1;
+  41   1              if(mode==1)
+  42   1              {
+  43   2                      keyen=1;
+  44   2              }
+  45   1              if(keyen==1&&(k1==0||k2==0||k3==0||k4==0))
+  46   1              {
+  47   2                      delay(1000);  //消抖处理
+  48   2                      keyen=0;
+  49   2                      if(k1==0)return KEY1;
+  50   2                      else if(k2==0)return KEY2;
+  51   2                      else if(k3==0)return KEY3;
+  52   2                      else if(k4==0)return KEY4;                              
+  53   2              }
+  54   1              else if(k1==1&&k2==1&&k3==1&&k4==1)
+  55   1              {
+C51 COMPILER V9.01   MAIN                                                                  05/07/2016 17:30:13 PAGE 2   
+
+  56   2                      keyen=1;
+  57   2              }
+  58   1              return 0;       
+  59   1      }
+  60          
+  61          
+  62          /*******************************************************************************
+  63          * 函 数 名         : DigDisplay
+  64          * 函数功能                 : 数码管动态扫描函数，循环扫描8个数码管显示
+  65          *******************************************************************************/
+  66          void DigDisplay()
+  67          {
+  68   1              u8 i;
+  69   1              for(i=0;i<8;i++)
+  70   1              {
+  71   2                      switch(i)        //位选，选择点亮的数码管，
+  72   2                      {
+  73   3                              case(0):
+  74   3                                      LSA=0;LSB=0;LSC=0; break;//显示第0位
+  75   3                              case(1):
+  76   3                                      LSA=1;LSB=0;LSC=0; break;//显示第1位
+  77   3                              case(2):
+  78   3                                      LSA=0;LSB=1;LSC=0; break;//显示第2位
+  79   3                              case(3):
+  80   3                                      LSA=1;LSB=1;LSC=0; break;//显示第3位
+  81   3                              case(4):
+  82   3                                      LSA=0;LSB=0;LSC=1; break;//显示第4位
+  83   3                              case(5):
+  84   3                                      LSA=1;LSB=0;LSC=1; break;//显示第5位
+  85   3                              case(6):
+  86   3                                      LSA=0;LSB=1;LSC=1; break;//显示第6位
+  87   3                              case(7):
+  88   3                                      LSA=1;LSB=1;LSC=1; break;//显示第7位    
+  89   3                      }
+  90   2                      P0=DisplayData[i];//发送段码
+  91   2                      delay(100); //间隔一段时间扫描  
+  92   2                      P0=0x00;//消隐
+  93   2              }
+  94   1      }
+  95          
+  96          void datapros()
+  97          {
+  98   1              u8 key=KeyScan(0);
+  99   1              switch(key)
+ 100   1              {
+ 101   2                      case 1:  keynum++;if(keynum==100)keynum=0; break;
+ 102   2                      case 2:  keynum--;if(keynum<=0)keynum=99; break;
+ 103   2                      case 3:  keynum=0; break;
+ 104   2                      case 4:   break;
+ 105   2              }
+ 106   1              DisplayData[0]=smgduan[keynum%10];
+ 107   1              DisplayData[1]=smgduan[keynum/10];
+ 108   1      }
+ 109          /*******************************************************************************
+ 110          * 函 数 名       : main
+ 111          * 函数功能               : 主函数
+ 112          * 输    入       : 无
+ 113          * 输    出       : 无
+ 114          *******************************************************************************/
+ 115          void main()
+ 116          {       
+ 117   1              while(1)
+C51 COMPILER V9.01   MAIN                                                                  05/07/2016 17:30:13 PAGE 3   
+
+ 118   1              {
+ 119   2                      datapros();
+ 120   2                      DigDisplay();   
+ 121   2              }               
+ 122   1      }
+ 123          
+ 124          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    306    ----
+   CONSTANT SIZE    =     17    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     10    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,17 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+J:\新建文件夹 (2)\1\39. 基于单片机的室内空气净化系统\程序设计\1.uvproj
+Project File Date:  04/22/2016
+
+<h2>Output:</h2>
+Build target 'Target 1'
+compiling 1.c...
+linking...
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?SPI_START?XPT2046
+Program Size: data=19.0 xdata=0 code=839
+creating hex file from "1"...
+"1" - 0 Error(s), 1 Warning(s).

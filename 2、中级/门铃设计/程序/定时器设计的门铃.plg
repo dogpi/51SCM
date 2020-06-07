@@ -1,0 +1,26 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+H:\普中HC6800-ES V2.0开发板资料\实验程序\中级实验例程\门铃设计\定时器设计的门铃.uvproj
+Project File Date:  05/17/2016
+
+<h2>Output:</h2>
+Build target 'Target 1'
+compiling 定时器设计的门铃.c...
+linking...
+Program Size: data=15.0 xdata=0 code=170
+creating hex file from "定时器设计的门铃"...
+"定时器设计的门铃" - 0 Error(s), 0 Warning(s).
+Build target 'Target 1'
+linking...
+Program Size: data=15.0 xdata=0 code=170
+creating hex file from "定时器设计的门铃"...
+"定时器设计的门铃" - 0 Error(s), 0 Warning(s).
+Build target 'Target 1'
+compiling 定时器设计的门铃.c...
+linking...
+Program Size: data=15.0 xdata=0 code=170
+creating hex file from "定时器设计的门铃"...
+"定时器设计的门铃" - 0 Error(s), 0 Warning(s).
