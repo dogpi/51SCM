@@ -1,0 +1,318 @@
+C51 COMPILER V9.55   MAIN                                                                  06/18/2020 22:08:40 PAGE 1   
+
+
+C51 COMPILER V9.55, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include "reg51.h"
+   2          #include  "intrins.h"
+   3          
+   4          sbit DSPORT = P3^7;
+   5          
+   6          sbit LSA=P2^2;
+   7          sbit LSB=P2^3;
+   8          sbit LSC=P2^4;
+   9          
+  10          
+  11          void delay1ms()
+  12          {
+  13   1        unsigned char a,b,c;
+  14   1        for(c=1;c>0;c--)
+  15   1            for(b=142;b>0;b--)
+  16   1                for(a=2;a>0;a--);
+  17   1      }
+  18          
+  19          void delayXms(unsigned int x)
+  20          {
+  21   1        int i=0;
+  22   1        for(i=0;i<x;i++){
+  23   2          delay1ms();
+  24   2        }
+  25   1      }
+  26          
+  27          void delay500us(void)   //误差 0us
+  28          {
+  29   1          unsigned char a,b;
+  30   1          for(b=71;b>0;b--)
+  31   1              for(a=2;a>0;a--);
+  32   1      }
+  33          
+  34          
+  35          void delay80us(void)   //误差 0us
+  36          {
+  37   1          unsigned char a,b;
+  38   1          for(b=11;b>0;b--)
+  39   1              for(a=2;a>0;a--);
+  40   1      }
+  41          
+  42          void delay60us(void)   //误差 0us
+  43          {
+  44   1          unsigned char a,b;
+  45   1          for(b=3;b>0;b--)
+  46   1              for(a=8;a>0;a--);
+  47   1      }
+  48          void delay45us(void)   //误差 0us
+  49          {
+  50   1          unsigned char a;
+  51   1          for(a=21;a>0;a--);
+  52   1      }
+  53          
+  54          void delay15us(void)   //误差 0us
+C51 COMPILER V9.55   MAIN                                                                  06/18/2020 22:08:40 PAGE 2   
+
+  55          {
+  56   1          unsigned char a;
+  57   1          for(a=6;a>0;a--);
+  58   1      }
+  59          
+  60          void delay10us(void)   //误差 0us
+  61          {
+  62   1          unsigned char a,b;
+  63   1          for(b=1;b>0;b--)
+  64   1              for(a=2;a>0;a--);
+  65   1      }
+  66          
+  67          
+  68          unsigned char DS18B20Init()
+  69          {
+  70   1        unsigned char i;
+  71   1        // 首先拉低数据总线
+  72   1        DSPORT=0;
+  73   1        delay500us(); // 480-960us
+  74   1        DSPORT=1;
+  75   1        delay80us();  // 不能太大，如果超出了拉低的时间，会被上拉电阻拉高，那么接下来的判断肯定失败。
+  76   1        // 判断DS18B20是否拉低数据总线响应
+  77   1        // 如果初始化成功 会在15-60us内拉低，并持续60-240us
+  78   1        while(DSPORT)
+  79   1        {
+  80   2          delay10us();
+  81   2          i++;
+  82   2          if(i>500){
+  83   3            return 0; // 5ms未响应
+  84   3          }
+  85   2        }
+  86   1        return 1;
+  87   1      }
+  88          
+  89          void DS18B20WriteByte(unsigned char value)
+  90          {
+  91   1        unsigned char i=0;
+  92   1      
+  93   1        for(i=0;i<8;i++){
+  94   2          // 写数据前总线拉低15us
+  95   2          DSPORT=0;
+  96   2          _nop_();
+  97   2          DSPORT = value&0x01;    // 小端写
+  98   2      
+  99   2          // 写完一位 延时最少60us 拉高
+ 100   2          delay80us();
+ 101   2          DSPORT=1;
+ 102   2          value>>=1;
+ 103   2        }
+ 104   1      }
+ 105          
+ 106          unsigned char DS18B20ReadByte()
+ 107          {
+ 108   1        unsigned char i=0,j=0,bi=0,byte=0;
+ 109   1        for(i=0;i<8;i++){
+ 110   2          // 将数据总线拉低 延时>1us
+ 111   2          DSPORT=0;
+ 112   2          _nop_();
+ 113   2          _nop_();
+ 114   2          _nop_();
+ 115   2          // 将数据总线拉高 延时10us
+ 116   2          DSPORT=1;
+C51 COMPILER V9.55   MAIN                                                                  06/18/2020 22:08:40 PAGE 3   
+
+ 117   2          delay10us();
+ 118   2          
+ 119   2          bi= DSPORT;
+ 120   2          byte = (byte>>1)|(bi<<7); // 小端读  
+ 121   2          /*与EEPROM的相反，EEPROM是大端读写 
+ 122   2          EEPROM读写要么用都用大端，要么都用小端，因为数据是自己写的,
+ 123   2          只要保持读写端一致即可。
+ 124   2          而DS18B20读出的数据是DS18B20产生的，从数据总线传出时也是小端，所以这里读取要用小端。
+ 125   2          */
+ 126   2          delay60us();
+ 127   2        }
+ 128   1      
+ 129   1        return byte;
+ 130   1      }
+ 131          
+ 132          // 转换温度
+ 133          void DS18B20ChangeTemp()
+ 134          {
+ 135   1        DSPORT=1;
+ 136   1        DS18B20Init();
+ 137   1        delayXms(2);
+ 138   1        DS18B20WriteByte(0xcc);
+ 139   1        DS18B20WriteByte(0x44);
+ 140   1      }
+ 141          
+ 142          // 读取温度 命令
+ 143          void DS18B20SentReadComm()
+ 144          {
+ 145   1        DSPORT=1;
+ 146   1        DS18B20Init();
+ 147   1        delayXms(2);
+ 148   1        DS18B20WriteByte(0xcc);
+ 149   1        DS18B20WriteByte(0xbe);
+ 150   1      }
+ 151          
+ 152          // 读取温度值
+ 153          float DS18B20ReadTemp()
+ 154          {
+ 155   1        char H,L;
+ 156   1        float tmp=0;
+ 157   1        DS18B20ChangeTemp();
+ 158   1        DS18B20SentReadComm();
+ 159   1        L=DS18B20ReadByte();
+ 160   1        H=DS18B20ReadByte();
+ 161   1      //  H = 0x0a;
+ 162   1      //  L = 0xff;
+ 163   1        tmp=tmp+(H&0x01)*16;
+ 164   1        H=H>>1;
+ 165   1        tmp=tmp+(H&0x01)*32;
+ 166   1        H=H>>1;
+ 167   1        tmp=tmp+(H&0x01)*64;
+ 168   1        
+ 169   1        tmp=tmp+(L&0x01)*0.0625;
+ 170   1        L = L>>1;
+ 171   1        tmp=tmp+(L&0x01)*0.125;
+ 172   1        L = L>>1;
+ 173   1        tmp=tmp+(L&0x01)*0.25;
+ 174   1        L = L>>1;
+ 175   1        tmp=tmp+(L&0x01)*0.5;
+ 176   1        L = L>>1;
+ 177   1        tmp=tmp+(L&0x01)*1;
+ 178   1        L = L>>1;
+C51 COMPILER V9.55   MAIN                                                                  06/18/2020 22:08:40 PAGE 4   
+
+ 179   1        tmp=tmp+(L&0x01)*2;
+ 180   1        L = L>>1;
+ 181   1        tmp=tmp+(L&0x01)*4;
+ 182   1        L = L>>1;
+ 183   1        tmp=tmp+(L&0x01)*8;
+ 184   1        
+ 185   1        
+ 186   1        if((H&0xf8)==0xf8){
+ 187   2          tmp = 0-tmp;
+ 188   2        }
+ 189   1        
+ 190   1        return tmp;
+ 191   1      }
+ 192          
+ 193          // 数码管显示的数字        0     1    2     3    4   5    6    7    8   9
+ 194          unsigned char num[10] = {0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
+ 195          unsigned char NG = 0x40;
+ 196          // 如果要添加小数点就直接在个位上加0x80
+ 197          // 用于存放写入的数据的值 最大可为4位
+ 198          unsigned char show[4];
+ 199          void ShowValue(float value)
+ 200          {
+ 201   1        int Z=0;
+ 202   1        int F=0;
+ 203   1        if(value<0){
+ 204   2          show[0] = NG;
+ 205   2          value = 0-value;
+ 206   2          Z=value;
+ 207   2          F=value*10-Z*10;
+ 208   2        }
+ 209   1        else{
+ 210   2          show[0] = 0x00;
+ 211   2          Z=value;
+ 212   2          F=value*10-Z*10;
+ 213   2        }
+ 214   1        show[1] = num[Z%100/10]; //十位
+ 215   1        show[2] = num[Z%100%10]+0x80; //个位
+ 216   1        show[3] = num[F]; //十分位位
+ 217   1      }
+ 218          void ShowOnDevice()
+ 219          {
+ 220   1        unsigned char i=0;
+ 221   1        for(i=0;i<4;i++){
+ 222   2          // 循环给四个数码管输出要显示的数
+ 223   2          switch(i){
+ 224   3            case 0:
+ 225   3              LSA=0;LSB=0;LSC=0;break;  // 显示第0位
+ 226   3            case 1:
+ 227   3              LSA=1;LSB=0;LSC=0;break;  // 显示第1位
+ 228   3            case 2:
+ 229   3              LSA=0;LSB=1;LSC=0;break;  // 显示第2位
+ 230   3            case 3:
+ 231   3              LSA=1;LSB=1;LSC=0;break;  // 显示第3位
+ 232   3          }
+ 233   2          P0=show[i];
+ 234   2          delay500us();
+ 235   2          P0=0x00;  // 共阴极 消隐
+ 236   2        }
+ 237   1      
+ 238   1      }
+ 239          
+ 240          float Peras(int value)
+C51 COMPILER V9.55   MAIN                                                                  06/18/2020 22:08:40 PAGE 5   
+
+ 241          {
+ 242   1        float tmp;
+ 243   1        char H=value&0xff00;
+ 244   1        char L=value&0x00ff;
+ 245   1        tmp=tmp+(H&0x01)*16;
+ 246   1        H=H>>1;
+ 247   1        tmp=tmp+(H&0x01)*32;
+ 248   1        H=H>>1;
+ 249   1        tmp=tmp+(H&0x01)*64;
+ 250   1        
+ 251   1        tmp=tmp+(L&0x01)*0.0625;
+ 252   1        L = L>>1;
+ 253   1        tmp=tmp+(L&0x01)*0.125;
+ 254   1        L = L>>1;
+ 255   1        tmp=tmp+(L&0x01)*0.25;
+ 256   1        L = L>>1;
+ 257   1        tmp=tmp+(L&0x01)*0.5;
+ 258   1        L = L>>1;
+ 259   1        tmp=tmp+(L&0x01)*1;
+ 260   1        L = L>>1;
+ 261   1        tmp=tmp+(L&0x01)*2;
+ 262   1        L = L>>1;
+ 263   1        tmp=tmp+(L&0x01)*4;
+ 264   1        L = L>>1;
+ 265   1        tmp=tmp+(L&0x01)*8;
+ 266   1        if(H<0){
+ 267   2          tmp = 0-tmp;
+ 268   2        }
+ 269   1        return tmp;
+ 270   1      }
+ 271          
+ 272          void main()
+ 273          {
+ 274   1        unsigned char ret=11;
+ 275   1      //  int value = 0;
+ 276   1        float tmp=0;
+ 277   1        
+ 278   1        while(1){
+ 279   2          //ret = DS18B20Init();
+ 280   2          tmp = DS18B20ReadTemp();
+ 281   2      //    tmp = Peras(value);
+ 282   2          ShowValue(tmp);
+ 283   2          ShowOnDevice();
+ 284   2        }
+ 285   1      
+ 286   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1922    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     15      27
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

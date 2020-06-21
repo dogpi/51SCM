@@ -1,0 +1,7 @@
+".\Objects\STARTUP.obj",
+".\Objects\lcd1602.obj",
+".\Objects\ds18b20.obj",
+".\Objects\main.obj",
+".\Objects\delay.obj" 
+TO ".\Objects\温度显示" 
+PRINT(".\Listings\温度显示.m51")

@@ -1,0 +1,83 @@
+C51 COMPILER V9.55   DELAY                                                                 06/20/2020 21:19:29 PAGE 1   
+
+
+C51 COMPILER V9.55, COMPILATION OF MODULE DELAY
+OBJECT MODULE PLACED IN .\Objects\delay.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE delay.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\del
+                    -ay.lst) TABS(2) OBJECT(.\Objects\delay.obj)
+
+line level    source
+
+   1          #include "delay.h"
+   2          
+   3          void delay1ms()
+   4          {
+   5   1        unsigned char a,b,c;
+   6   1        for(c=1;c>0;c--)
+   7   1            for(b=142;b>0;b--)
+   8   1                for(a=2;a>0;a--);
+   9   1      }
+  10          
+  11          void delayXms(unsigned int x)
+  12          {
+  13   1        int i=0;
+  14   1        for(i=0;i<x;i++){
+  15   2          delay1ms();
+  16   2        }
+  17   1      }
+  18          
+  19          void delay500us(void)   //Îó²î 0us
+  20          {
+  21   1          unsigned char a,b;
+  22   1          for(b=71;b>0;b--)
+  23   1              for(a=2;a>0;a--);
+  24   1      }
+  25          
+  26          
+  27          void delay80us(void)   //Îó²î 0us
+  28          {
+  29   1          unsigned char a,b;
+  30   1          for(b=11;b>0;b--)
+  31   1              for(a=2;a>0;a--);
+  32   1      }
+  33          
+  34          void delay60us(void)   //Îó²î 0us
+  35          {
+  36   1          unsigned char a,b;
+  37   1          for(b=3;b>0;b--)
+  38   1              for(a=8;a>0;a--);
+  39   1      }
+  40          void delay45us(void)   //Îó²î 0us
+  41          {
+  42   1          unsigned char a;
+  43   1          for(a=21;a>0;a--);
+  44   1      }
+  45          
+  46          void delay15us(void)   //Îó²î 0us
+  47          {
+  48   1          unsigned char a;
+  49   1          for(a=6;a>0;a--);
+  50   1      }
+  51          
+  52          void delay10us(void)   //Îó²î 0us
+  53          {
+  54   1          unsigned char a,b;
+C51 COMPILER V9.55   DELAY                                                                 06/20/2020 21:19:29 PAGE 2   
+
+  55   1          for(b=1;b>0;b--)
+  56   1              for(a=2;a>0;a--);
+  57   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     84    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
